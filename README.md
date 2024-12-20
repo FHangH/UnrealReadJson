@@ -1,6 +1,6 @@
 # Unreal Read Json
 
-有别于常见的`UE`中处理`Json`的方式，灵感来源于`GameplayTag`
+有别于常见的`UE`中处理`Json`的方式，灵感来源于`GameplayTag` 和 `UE JsonObject`中存储键值的方式：`TMap<FString, TSharedPtr<FJsonValue>> Values;`
 
 UE中常见的解决方案：
 
@@ -25,9 +25,11 @@ UE中常见的解决方案：
 - 不用在蓝图中织网了
 - 减少专门创建一堆结构体去`JsonToStruct`
 
+缺点：
 
-
-`纯粹写着玩的！！！`
+- 也就内存占用大了一点点
+- 也就消耗大了那么一点点
+- `纯粹写着玩的！！！`
 
 
 
