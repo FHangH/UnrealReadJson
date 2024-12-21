@@ -5,6 +5,12 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogReadJson, Log, All);
 inline DEFINE_LOG_CATEGORY(LogReadJson);
 
+UENUM(BlueprintType)
+enum class EValueType
+{
+	String, Bool, Int, Float
+};
+
 // Define DataStruct
 USTRUCT(BlueprintType)
 struct FJsonDataStruct
@@ -22,6 +28,9 @@ struct FJsonDataStruct
 
 	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, Category = "ReadJson")
 	float FloatValue { 0.f };
+
+    UPROPERTY(BlueprintReadWrite, VisibleAnywhere, Category = "ReadJson")
+	EValueType ValueType { EValueType::String };
 };
 
 // Define Node Struct

@@ -203,3 +203,52 @@ UE中常见的解决方案：
 ![image-20241220145921835](README.assets/image-20241220145921835.png)
 
 ![image-20241220150231254](README.assets/image-20241220150231254.png)
+
+
+
+### 3. 新增便捷蓝图节点
+
+![image-20241221171033626](README.assets/image-20241221171033626.png)
+
+
+
+#### 3.1 GetNodeValue_To [ String, Int, Float, Bool ]
+
+如果明确直到对应的`Node Value`的类型，可以直接使用这个系列的蓝图节点，比`GetNodeData`更简洁
+
+
+
+#### 3.2 ParseJsonArray_To [String, Int, Float, Bool] Array
+
+测试`Json1`：
+
+```json
+{
+    "array":
+    {
+        "int": [1, 2, 3],
+        "string": ["a", "b", "c"],
+        "bool": [true, false, true],
+        "float": [1.1, 2.2, 3.3],
+        "double": [1.1, 2.2, 3.3],
+        "object": [{"name": "a"}, {"name": "b"}, {"name": "c"}],
+        "array": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    }
+}
+```
+
+
+
+如果明确知道，对应的`Node Value`的值是`Array`，可以直接用这个蓝图节点，更便捷；
+
+注意：如果`Array`的元素是`Object`，会将`Object`解析成`String`，如果需要进一步解析，使用：`ReadJson_Async`
+
+
+
+#### 3.3 GetNodeValue_To [String, Int, Float, Bool] Array
+
+就是将 `GetNodeValue_ToString`和`ParseJsonArray_To[]Array`节点结合使用；
+
+例如想要得到`Json2`中的`array.object`，直接使用`GetNodeValue_ToStringArray`，就可以直接得到 `TArray<FString>`；
+
+其它依次类推
