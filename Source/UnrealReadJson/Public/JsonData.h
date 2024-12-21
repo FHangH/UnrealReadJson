@@ -2,6 +2,9 @@
 
 #include "JsonData.generated.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogReadJson, Log, All);
+inline DEFINE_LOG_CATEGORY(LogReadJson);
+
 // Define DataStruct
 USTRUCT(BlueprintType)
 struct FJsonDataStruct

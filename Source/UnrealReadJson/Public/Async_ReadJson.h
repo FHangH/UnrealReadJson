@@ -5,6 +5,15 @@
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "Async_ReadJson.generated.h"
 
+namespace TempJsonNode
+{
+	struct FJsonNode
+	{
+		TSharedPtr<FJsonObject> JsonObject;
+		FString CurrentPath;
+	};
+}
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FReadJsonSingature, FParsedData, ParsedData);
 
 UCLASS(BlueprintType, meta=(ExposedAsyncProxy="AsyncTask"))
