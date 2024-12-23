@@ -17,16 +17,21 @@ void UAsync_ReadJson::Activate()
 
 int32 UAsync_ReadJson::CountJsonNodes(const TSharedPtr<FJsonObject>& JsonObject)
 {
-	int32 Count = 0;
-	for (const auto& Elem : JsonObject->Values)
-	{
-		if (Elem.Value->Type == EJson::Object)
-		{
-			Count += CountJsonNodes(Elem.Value->AsObject());
-		}
-		Count++;
-	}
-	return Count;
+    if (!JsonObject.IsValid() || JsonObject->Values.IsEmpty())
+    {
+        return 0;
+    }
+
+    int32 Count = 0;
+    for (const auto& Elem : JsonObject->Values)
+    {
+        if (Elem.Value->Type == EJson::Object)
+        {
+            Count += CountJsonNodes(Elem.Value->AsObject());
+        }
+        ++Count;
+    }
+    return Count;
 }
 
 void UAsync_ReadJson::LoadJson(const FString& JsonString)
