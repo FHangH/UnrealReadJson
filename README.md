@@ -21,7 +21,7 @@ UE中常见的解决方案：
 
 优点：
 
-- 通过类似`GameplayTag`的方式，定位到`Json`中值
+- 通过类型`GameplayTag`的方式，定位到`Json`中值
 - 不用在蓝图中织网了
 - 减少专门创建一堆结构体去`JsonToStruct`
 
@@ -91,7 +91,7 @@ UE中常见的解决方案：
   }
   ```
 
-- `GetNodedata("1.2")`就可以得到`NodeData`
+- `GetNodePath("1.2")`就可以得到`NodeData`
 
   ```json
   {
@@ -206,7 +206,7 @@ UE中常见的解决方案：
 
 
 
-### 3. 新增便捷蓝图节点
+### 3. 更新日志
 
 ![image-20241221171033626](README.assets/image-20241221171033626.png)
 
@@ -252,3 +252,17 @@ UE中常见的解决方案：
 例如想要得到`Json2`中的`array.object`，直接使用`GetNodeValue_ToStringArray`，就可以直接得到 `TArray<FString>`；
 
 其它依次类推
+
+
+
+#### 3.4 ReadJson
+
+用于解析较小的`Json`，使用起来比`ReadJson_Async`简单快捷
+
+![image-20250313104151028](README.assets/image-20250313104151028.png)
+
+
+
+#### 3.5 更新打印日志
+
+打印新携带调用所在的蓝图名称，方便定位所在蓝图

@@ -73,26 +73,49 @@ protected:
 	TMap<FString, FJsonDataStruct> ParsedDataMap {};
 
 public:
-	UFUNCTION(BlueprintCallable, Category="FH|ReadJson|AsyncTask", DisplayName="ReadJson_Async", meta=(BlueprintInternalUseOnly="true", DefaultToSelf="WorldContextObject"))
+	/*
+	 * ReadJson-Async 异步任务（初次解析Json或较大的Json，推荐使用）
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @IsLargeJson: IsLargeJson 是否是大文件Json
+	 * @OutParsedData: FParsedData 解析后的Json数据
+	 * @AsyncTask: FAsyncTask<UAsync_ReadJson> 异步任务，可创建对象，方便手动调用EndTask手动销毁
+	 */
+	UFUNCTION(BlueprintCallable, Category="FH|ReadJson|Read|AsyncTask", DisplayName="ReadJson_Async", meta=(BlueprintInternalUseOnly="true", DefaultToSelf="WorldContextObject"))
 	static UAsync_ReadJson* Async_ReadJson(UObject* WorldContextObject, const FString& InJsonStr, const bool IsLargeJson = false);
+
+	/*
+	 * ReadJson-Block 同步任务（推荐解析较小的Json）
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @OutParsedData: FParsedData 解析后的Json数据
+	 * @IsValid: bool 是否解析成功
+	 */
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read", DisplayName="ReadJson", meta=(DefaultToSelf="WorldContextObject"))
+	static void ReadJson_Block(UObject* WorldContextObject, const FString& InJsonStr, FParsedData& OutParsedData, bool& IsValid);
 
 	virtual void Activate() override;
 	
 	static int32 CountJsonNodes(const TSharedPtr<FJsonObject>& JsonObject);
 	
 	void LoadJson(const FString& JsonString);
-	
+
+	// ParseJson
 	void ParseJson(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath);
+	// ParseJson-Block
+	static void ParseJson_Block(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath, FParsedData& OutParsedData);
+
 	void ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson);
 	
-	UFUNCTION(BlueprintPure, Category="FH|ReadJson")
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToValue")
 	static bool GetNodeData(const FString& NodePath, const FParsedData& ParsedData, FJsonNode& NodeData);
 
 	static TArray<TSharedPtr<FJsonValue>> GetJsonValueArray(const FString& JsonArray);
 
-	UFUNCTION(BlueprintPure, Category="FH|ReadJson")
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|ParseToArray")
 	static bool ParseJsonArray(const FString& JsonArray, FJsonArray& ArrayValue);
 
+	/*
+	 * 用于手动销毁异步任务-ReadJson_Async
+	 */
 	UFUNCTION(BlueprintCallable, Category="FH|ReadJson")
 	void EndTask();
 
@@ -100,6 +123,8 @@ public:
 
 	/* Convenient Functions */	 
 	static FString GetValueTypeName(const EValueType& ValueType);
+
+	static FString CallerName();
 	
 	// To Value
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToValue", DisplayName="GetNodeValue_ToString")
