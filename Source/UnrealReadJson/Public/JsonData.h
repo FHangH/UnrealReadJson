@@ -6,7 +6,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogReadJson, Log, All);
 inline DEFINE_LOG_CATEGORY(LogReadJson);
 
 UENUM(BlueprintType)
-enum class EValueType
+enum class EValueType : uint8
 {
 	String, Bool, Int, Float
 };

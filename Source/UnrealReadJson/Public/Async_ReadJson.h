@@ -14,12 +14,19 @@ namespace TempJsonNode
 	};
 }
 
-#define CHECK_NODE_PATH(NodePath) \
+#define CHECK_NODE_PATH_RET(NodePath) \
 	if (NodePath.IsEmpty()) \
 	{ \
 		UE_LOG(LogReadJson, Error, TEXT("[ %hs ] NodePath is empty"), __FUNCTION__); \
 		return false; \
 	}
+
+#define CHECK_NODE_PATH(NodePath, IsValid) \
+    IsValid = false; \
+    if (NodePath.IsEmpty()) \
+    { \
+        UE_LOG(LogReadJson, Error, TEXT("[ %hs ] NodePath is empty"), __FUNCTION__); \
+    } \
 
 #define CHECK_JSON_ARRAY_EMPTY(JsonArray) \
 	if (JsonArray.IsEmpty()) \
@@ -108,12 +115,12 @@ public:
 	void ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson);
 	
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToValue")
-	static bool GetNodeData(const FString& NodePath, const FParsedData& ParsedData, FJsonNode& NodeData);
+	static void GetNodeData(const FString& NodePath, const FParsedData& ParsedData, FJsonNode& NodeData, bool& IsValid);
 
 	static TArray<TSharedPtr<FJsonValue>> GetJsonValueArray(const FString& JsonArray);
 
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|ParseToArray")
-	static bool ParseJsonArray(const FString& JsonArray, FJsonArray& ArrayValue);
+	static void ParseJsonArray(const FString& JsonArray, FJsonArray& ArrayValue, bool& IsValid);
 
 	/*
 	 * 用于手动销毁异步任务-ReadJson_Async
@@ -130,42 +137,42 @@ public:
 	
 	// To Value
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToValue", DisplayName="GetNodeValue_ToString")
-	static bool GetNodeValueToString(const FString& NodePath, const FParsedData& ParsedData, FString& NodeValue);
+	static void GetNodeValueToString(const FString& NodePath, const FParsedData& ParsedData, FString& NodeValue, bool& IsValid);
 
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToValue", DisplayName="GetNodeValue_ToInt")
-    static bool GetNodeValueToInt(const FString& NodePath, const FParsedData& ParsedData, int32& NodeValue);
+    static void GetNodeValueToInt(const FString& NodePath, const FParsedData& ParsedData, int32& NodeValue, bool& IsValid);
 
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToValue", DisplayName="GetNodeValue_ToFloat")
-    static bool GetNodeValueToFloat(const FString& NodePath, const FParsedData& ParsedData, float& NodeValue);
+    static void GetNodeValueToFloat(const FString& NodePath, const FParsedData& ParsedData, float& NodeValue, bool& IsValid);
 	
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToValue", DisplayName="GetNodeValue_ToBool")
-    static bool GetNodeValueToBool(const FString& NodePath, const FParsedData& ParsedData, bool& NodeValue);
+    static void GetNodeValueToBool(const FString& NodePath, const FParsedData& ParsedData, bool& NodeValue, bool& IsValid);
 
 	// Parse Array Value
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|ParseToArray", DisplayName="ParseJsonArray_ToStringArray")
-	static bool ParseJsonArrayToStringArray(const FString& JsonArray, TArray<FString>& ArrayValue);
+	static void ParseJsonArrayToStringArray(const FString& JsonArray, TArray<FString>& ArrayValue, bool& IsValid);
 
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|ParseToArray", DisplayName="ParseJsonArray_ToIntArray")
-	static bool ParseJsonArrayToIntArray(const FString& JsonArray, TArray<int32>& ArrayValue);
+	static void ParseJsonArrayToIntArray(const FString& JsonArray, TArray<int32>& ArrayValue, bool& IsValid);
 
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|ParseToArray", DisplayName="ParseJsonArray_ToFloatArray")
-	static bool ParseJsonArrayToFloatArray(const FString& JsonArray, TArray<float>& ArrayValue);
+	static void ParseJsonArrayToFloatArray(const FString& JsonArray, TArray<float>& ArrayValue, bool& IsValid);
 
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|ParseToArray", DisplayName="ParseJsonArray_ToBoolArray")
-	static bool ParseJsonArrayToBoolArray(const FString& JsonArray, TArray<bool>& ArrayValue);
+	static void ParseJsonArrayToBoolArray(const FString& JsonArray, TArray<bool>& ArrayValue, bool& IsValid);
 
 	// To Array
     UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToArray", DisplayName="GetNodeValue_ToStringArray")
-    static bool GetNodeValueToStringArray(const FString& NodePath, const FParsedData& ParsedData, TArray<FString>& NodeArray);
+    static void GetNodeValueToStringArray(const FString& NodePath, const FParsedData& ParsedData, TArray<FString>& NodeArray, bool& IsValid);
 
     UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToArray", DisplayName="GetNodeValue_ToIntArray")
-    static bool GetNodeValueToIntArray(const FString& NodePath, const FParsedData& ParsedData, TArray<int32>& NodeArray);
+    static void GetNodeValueToIntArray(const FString& NodePath, const FParsedData& ParsedData, TArray<int32>& NodeArray, bool& IsValid);
 
     UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToArray", DisplayName="GetNodeValue_ToFloatArray")
-    static bool GetNodeValueToFloatArray(const FString& NodePath, const FParsedData& ParsedData, TArray<float>& NodeArray);
+    static void GetNodeValueToFloatArray(const FString& NodePath, const FParsedData& ParsedData, TArray<float>& NodeArray, bool& IsValid);
 
     UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToArray", DisplayName="GetNodeValue_ToBoolArray")
-    static bool GetNodeValueToBoolArray(const FString& NodePath, const FParsedData& ParsedData, TArray<bool>& NodeArray);
+    static void GetNodeValueToBoolArray(const FString& NodePath, const FParsedData& ParsedData, TArray<bool>& NodeArray, bool& IsValid);
 
 	/*便捷读取解析Json*/
 	/*

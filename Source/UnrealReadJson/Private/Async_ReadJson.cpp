@@ -349,19 +349,18 @@ void UAsync_ReadJson::ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson
     }
 }
 
-bool UAsync_ReadJson::GetNodeData(const FString& NodePath, const FParsedData& ParsedData, FJsonNode& NodeData)
+void UAsync_ReadJson::GetNodeData(const FString& NodePath, const FParsedData& ParsedData, FJsonNode& NodeData, bool& IsValid)
 {
     // 如果节点路径为空，则返回 false
-    CHECK_NODE_PATH(NodePath);
+    CHECK_NODE_PATH(NodePath, IsValid);
     
 	if (ParsedData.ParsedDataMap.Contains(NodePath))
 	{
 	    NodeData =  {NodePath, ParsedData.ParsedDataMap[NodePath] };
-		return true;
+		IsValid = true;
 	}
     // 如果找不到节点，则返回 false
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
-	return false;
 }
 
 TArray<TSharedPtr<FJsonValue>> UAsync_ReadJson::GetJsonValueArray(const FString& JsonArray)
@@ -386,13 +385,17 @@ TArray<TSharedPtr<FJsonValue>> UAsync_ReadJson::GetJsonValueArray(const FString&
     return JsonValue->AsArray();
 }
 
-bool UAsync_ReadJson::ParseJsonArray(const FString& JsonArray, FJsonArray& ArrayValue)
+void UAsync_ReadJson::ParseJsonArray(const FString& JsonArray, FJsonArray& ArrayValue, bool& IsValid)
 {
     // 在开始解析前，清空所有目标数组，避免之前的数据影响当前解析
     ArrayValue = {};
+    IsValid = false;
     
     auto JsonValueArray = GetJsonValueArray(JsonArray);
-    if (JsonValueArray.IsEmpty()) return false;
+    if (JsonValueArray.IsEmpty())
+    {
+        return;
+    }
 
     for (int32 Index = 0; Index < JsonValueArray.Num(); ++Index)
     {
@@ -460,7 +463,7 @@ bool UAsync_ReadJson::ParseJsonArray(const FString& JsonArray, FJsonArray& Array
             }
         }
     }
-    return true;
+    IsValid = true;
 }
 
 void UAsync_ReadJson::EndTask()
@@ -499,10 +502,10 @@ FString UAsync_ReadJson::CallerName()
     return WorldContext ? WorldContext->GetName() : FString{ "NULL" };
 }
 
-bool UAsync_ReadJson::GetNodeValueToString(const FString& NodePath, const FParsedData& ParsedData, FString& NodeValue)
+void UAsync_ReadJson::GetNodeValueToString(const FString& NodePath, const FParsedData& ParsedData, FString& NodeValue, bool& IsValid)
 {
     // 如果节点路径为空，则返回 false
-    CHECK_NODE_PATH(NodePath);
+    CHECK_NODE_PATH(NodePath, IsValid);
     
     if (ParsedData.ParsedDataMap.Contains(NodePath))
     {
@@ -510,21 +513,20 @@ bool UAsync_ReadJson::GetNodeValueToString(const FString& NodePath, const FParse
         if (ValueType == EValueType::String)
         {
             NodeValue = ParsedData.ParsedDataMap[NodePath].StringValue;
-            return true;
+            IsValid = true;
         }
         // 节点类型不匹配
         UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] is not a string, Node Type: [ %s ]"), *CallerName(), __FUNCTION__, *NodePath, *GetValueTypeName(ValueType));
-        return false;
+        return;
     }
     // 如果找不到节点，则返回 false
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
-    return false;
 }
 
-bool UAsync_ReadJson::GetNodeValueToInt(const FString& NodePath, const FParsedData& ParsedData, int32& NodeValue)
+void UAsync_ReadJson::GetNodeValueToInt(const FString& NodePath, const FParsedData& ParsedData, int32& NodeValue, bool& IsValid)
 {
     // 如果节点路径为空，则返回 false
-    CHECK_NODE_PATH(NodePath);
+    CHECK_NODE_PATH(NodePath, IsValid);
     
     if (ParsedData.ParsedDataMap.Contains(NodePath))
     {
@@ -532,21 +534,20 @@ bool UAsync_ReadJson::GetNodeValueToInt(const FString& NodePath, const FParsedDa
         if (ValueType == EValueType::Int)
         {
             NodeValue = ParsedData.ParsedDataMap[NodePath].IntValue;
-            return true;
+            IsValid = true;
         }
         // 节点类型不匹配
         UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] is not a string, Node Type: [ %s ]"), *CallerName(), __FUNCTION__, *NodePath, *GetValueTypeName(ValueType));
-        return false;
+        return;
     }
     // 如果找不到节点，则返回 false
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
-    return false;
 }
 
-bool UAsync_ReadJson::GetNodeValueToFloat(const FString& NodePath, const FParsedData& ParsedData, float& NodeValue)
+void UAsync_ReadJson::GetNodeValueToFloat(const FString& NodePath, const FParsedData& ParsedData, float& NodeValue, bool& IsValid)
 {
     // 如果节点路径为空，则返回 false
-    CHECK_NODE_PATH(NodePath);
+    CHECK_NODE_PATH(NodePath, IsValid);
     
     if (ParsedData.ParsedDataMap.Contains(NodePath))
     {
@@ -554,21 +555,20 @@ bool UAsync_ReadJson::GetNodeValueToFloat(const FString& NodePath, const FParsed
         if (ValueType == EValueType::Float)
         {
             NodeValue = ParsedData.ParsedDataMap[NodePath].FloatValue;
-            return true;
+            IsValid = true;
         }
         // 节点类型不匹配
         UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] is not a string, Node Type: [ %s ]"), *CallerName(), __FUNCTION__, *NodePath, *GetValueTypeName(ValueType));
-        return false;
+        return;
     }
     // 如果找不到节点，则返回 false
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
-    return false;
 }
 
-bool UAsync_ReadJson::GetNodeValueToBool(const FString& NodePath, const FParsedData& ParsedData, bool& NodeValue)
+void UAsync_ReadJson::GetNodeValueToBool(const FString& NodePath, const FParsedData& ParsedData, bool& NodeValue, bool& IsValid)
 {
     // 如果节点路径为空，则返回 false
-    CHECK_NODE_PATH(NodePath);
+    CHECK_NODE_PATH(NodePath, IsValid);
     
     if (ParsedData.ParsedDataMap.Contains(NodePath))
     {
@@ -576,24 +576,26 @@ bool UAsync_ReadJson::GetNodeValueToBool(const FString& NodePath, const FParsedD
         if (ValueType == EValueType::Bool)
         {
             NodeValue = ParsedData.ParsedDataMap[NodePath].BoolValue;
-            return true;
+            IsValid = true;
         }
         // 节点类型不匹配
         UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] is not a string, Node Type: [ %s ]"), *CallerName(), __FUNCTION__, *NodePath, *GetValueTypeName(ValueType));
-        return false;
+        return;
     }
     // 如果找不到节点，则返回 false
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
-    return false;
 }
 
-bool UAsync_ReadJson::ParseJsonArrayToStringArray(const FString& JsonArray, TArray<FString>& ArrayValue)
+void UAsync_ReadJson::ParseJsonArrayToStringArray(const FString& JsonArray, TArray<FString>& ArrayValue, bool& IsValid)
 {
     // 在开始解析前，清空所有目标数组，避免之前的数据影响当前解析
     ArrayValue = {};
     
     auto JsonValueArray = GetJsonValueArray(JsonArray);
-    if (JsonValueArray.IsEmpty()) return false;
+    if (JsonValueArray.IsEmpty())
+    {
+        IsValid = false;
+    }
 
     for (int32 Index = 0; Index < JsonValueArray.Num(); ++Index)
     {
@@ -637,16 +639,19 @@ bool UAsync_ReadJson::ParseJsonArrayToStringArray(const FString& JsonArray, TArr
             }
         }
     }
-    return true;
+    IsValid = true;
 }
 
-bool UAsync_ReadJson::ParseJsonArrayToIntArray(const FString& JsonArray, TArray<int32>& ArrayValue)
+void UAsync_ReadJson::ParseJsonArrayToIntArray(const FString& JsonArray, TArray<int32>& ArrayValue, bool& IsValid)
 {
     // 在开始解析前，清空所有目标数组，避免之前的数据影响当前解析
     ArrayValue = {};
     
     auto JsonValueArray = GetJsonValueArray(JsonArray);
-    if (JsonValueArray.IsEmpty()) return false;
+    if (JsonValueArray.IsEmpty())
+    {
+        IsValid = false;
+    }
 
     for (int32 Index = 0; Index < JsonValueArray.Num(); ++Index)
     {
@@ -670,16 +675,19 @@ bool UAsync_ReadJson::ParseJsonArrayToIntArray(const FString& JsonArray, TArray<
         default: ;
         }
     }
-    return true;
+    IsValid = true;
 }
 
-bool UAsync_ReadJson::ParseJsonArrayToFloatArray(const FString& JsonArray, TArray<float>& ArrayValue)
+void UAsync_ReadJson::ParseJsonArrayToFloatArray(const FString& JsonArray, TArray<float>& ArrayValue, bool& IsValid)
 {
     // 在开始解析前，清空所有目标数组，避免之前的数据影响当前解析
     ArrayValue = {};
     
     auto JsonValueArray = GetJsonValueArray(JsonArray);
-    if (JsonValueArray.IsEmpty()) return false;
+    if (JsonValueArray.IsEmpty())
+    {
+        IsValid = false;
+    }
 
     for (int32 Index = 0; Index < JsonValueArray.Num(); ++Index)
     {
@@ -700,16 +708,19 @@ bool UAsync_ReadJson::ParseJsonArrayToFloatArray(const FString& JsonArray, TArra
         default: ;
         }
     }
-    return true;
+    IsValid = true;
 }
 
-bool UAsync_ReadJson::ParseJsonArrayToBoolArray(const FString& JsonArray, TArray<bool>& ArrayValue)
+void UAsync_ReadJson::ParseJsonArrayToBoolArray(const FString& JsonArray, TArray<bool>& ArrayValue, bool& IsValid)
 {
     // 在开始解析前，清空所有目标数组，避免之前的数据影响当前解析
     ArrayValue = {};
     
     auto JsonValueArray = GetJsonValueArray(JsonArray);
-    if (JsonValueArray.IsEmpty()) return false;
+    if (JsonValueArray.IsEmpty())
+    {
+        IsValid = false;
+    }
 
     for (int32 Index = 0; Index < JsonValueArray.Num(); ++Index)
     {
@@ -726,15 +737,15 @@ bool UAsync_ReadJson::ParseJsonArrayToBoolArray(const FString& JsonArray, TArray
         default: ;
         }
     }
-    return true;
+    IsValid = true;
 }
 
-bool UAsync_ReadJson::GetNodeValueToStringArray(const FString& NodePath, const FParsedData& ParsedData, TArray<FString>& NodeArray)
+void UAsync_ReadJson::GetNodeValueToStringArray(const FString& NodePath, const FParsedData& ParsedData, TArray<FString>& NodeArray, bool& IsValid)
 {
     NodeArray = {};
     
     // 如果节点路径为空，则返回 false
-    CHECK_NODE_PATH(NodePath);
+    CHECK_NODE_PATH(NodePath, IsValid);
     
     if (ParsedData.ParsedDataMap.Contains(NodePath))
     {
@@ -746,27 +757,24 @@ bool UAsync_ReadJson::GetNodeValueToStringArray(const FString& NodePath, const F
             if (JsonData.StringValue.IsEmpty())
             {
                 UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node Value: [ %s ] is empty"), *CallerName(), __FUNCTION__, *NodePath);
-                return false;
             }
             
             // 解析字符串到数组
-            return ParseJsonArrayToStringArray(JsonData.StringValue, NodeArray);
+            return ParseJsonArrayToStringArray(JsonData.StringValue, NodeArray, IsValid);
         }
         // 节点类型不匹配
         UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] is not a string, Node Type: [ %s ]"), *CallerName(), __FUNCTION__, *NodePath, *GetValueTypeName(ValueType));
-        return false;
     }
     // 如果找不到节点，则返回 false
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
-    return false;
 }
 
-bool UAsync_ReadJson::GetNodeValueToIntArray(const FString& NodePath, const FParsedData& ParsedData, TArray<int32>& NodeArray)
+void UAsync_ReadJson::GetNodeValueToIntArray(const FString& NodePath, const FParsedData& ParsedData, TArray<int32>& NodeArray, bool& IsValid)
 {
     NodeArray = {};
     
     // 如果节点路径为空，则返回 false
-    CHECK_NODE_PATH(NodePath);
+    CHECK_NODE_PATH(NodePath, IsValid);
     
     if (ParsedData.ParsedDataMap.Contains(NodePath))
     {
@@ -778,27 +786,24 @@ bool UAsync_ReadJson::GetNodeValueToIntArray(const FString& NodePath, const FPar
             if (JsonData.StringValue.IsEmpty())
             {
                 UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node Value: [ %s ] is empty"), *CallerName(), __FUNCTION__, *NodePath);
-                return false;
             }
             
             // 解析字符串到数组
-            return ParseJsonArrayToIntArray(JsonData.StringValue, NodeArray);
+            return ParseJsonArrayToIntArray(JsonData.StringValue, NodeArray, IsValid);
         }
         // 节点类型不匹配
         UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] is not a string, Node Type: [ %s ]"), *CallerName(), __FUNCTION__, *NodePath, *GetValueTypeName(ValueType));
-        return false;
     }
     // 如果找不到节点，则返回 false
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
-    return false;
 }
 
-bool UAsync_ReadJson::GetNodeValueToFloatArray(const FString& NodePath, const FParsedData& ParsedData, TArray<float>& NodeArray)
+void UAsync_ReadJson::GetNodeValueToFloatArray(const FString& NodePath, const FParsedData& ParsedData, TArray<float>& NodeArray, bool& IsValid)
 {
     NodeArray = {};
     
     // 如果节点路径为空，则返回 false
-    CHECK_NODE_PATH(NodePath);
+    CHECK_NODE_PATH(NodePath, IsValid);
     
     if (ParsedData.ParsedDataMap.Contains(NodePath))
     {
@@ -810,27 +815,24 @@ bool UAsync_ReadJson::GetNodeValueToFloatArray(const FString& NodePath, const FP
             if (JsonData.StringValue.IsEmpty())
             {
                 UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node Value: [ %s ] is empty"), *CallerName(), __FUNCTION__, *NodePath);
-                return false;
             }
             
             // 解析字符串到数组
-            return ParseJsonArrayToFloatArray(JsonData.StringValue, NodeArray);
+            return ParseJsonArrayToFloatArray(JsonData.StringValue, NodeArray, IsValid);
         }
         // 节点类型不匹配
         UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] is not a string, Node Type: [ %s ]"), *CallerName(), __FUNCTION__, *NodePath, *GetValueTypeName(ValueType));
-        return false;
     }
     // 如果找不到节点，则返回 false
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
-    return false;
 }
 
-bool UAsync_ReadJson::GetNodeValueToBoolArray(const FString& NodePath, const FParsedData& ParsedData, TArray<bool>& NodeArray)
+void UAsync_ReadJson::GetNodeValueToBoolArray(const FString& NodePath, const FParsedData& ParsedData, TArray<bool>& NodeArray, bool& IsValid)
 {
     NodeArray = {};
     
     // 如果节点路径为空，则返回 false
-    CHECK_NODE_PATH(NodePath);
+    CHECK_NODE_PATH(NodePath, IsValid);
     
     if (ParsedData.ParsedDataMap.Contains(NodePath))
     {
@@ -842,19 +844,16 @@ bool UAsync_ReadJson::GetNodeValueToBoolArray(const FString& NodePath, const FPa
             if (JsonData.StringValue.IsEmpty())
             {
                 UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node Value: [ %s ] is empty"), *CallerName(), __FUNCTION__, *NodePath);
-                return false;
             }
             
             // 解析字符串到数组
-            return ParseJsonArrayToBoolArray(JsonData.StringValue, NodeArray);
+            return ParseJsonArrayToBoolArray(JsonData.StringValue, NodeArray, IsValid);
         }
         // 节点类型不匹配
         UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] is not a string, Node Type: [ %s ]"), *CallerName(), __FUNCTION__, *NodePath, *GetValueTypeName(ValueType));
-        return false;
     }
     // 如果找不到节点，则返回 false
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
-    return false;
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToString(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, FString& NodeValue, bool& IsValid)
@@ -863,7 +862,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToString(UObject* WorldContextObj
     IsValid = false;
     
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
-    GetNodeValueToString(NodePath, ParsedData, NodeValue);
+    GetNodeValueToString(NodePath, ParsedData, NodeValue, IsValid);
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToInt(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, int32& NodeValue, bool& IsValid)
@@ -872,7 +871,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToInt(UObject* WorldContextObject
     IsValid = false;
     
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
-    GetNodeValueToInt(NodePath, ParsedData, NodeValue);
+    GetNodeValueToInt(NodePath, ParsedData, NodeValue, IsValid);
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloat(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, float& NodeValue, bool& IsValid)
@@ -881,7 +880,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloat(UObject* WorldContextObje
     IsValid = false;
     
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
-    GetNodeValueToFloat(NodePath, ParsedData, NodeValue);
+    GetNodeValueToFloat(NodePath, ParsedData, NodeValue, IsValid);
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToBool(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, bool& NodeValue, bool& IsValid)
@@ -890,7 +889,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToBool(UObject* WorldContextObjec
     IsValid = false;
     
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
-    GetNodeValueToBool(NodePath, ParsedData, NodeValue);
+    GetNodeValueToBool(NodePath, ParsedData, NodeValue, IsValid);
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToStringArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<FString>& NodeArray, bool& IsValid)
@@ -899,7 +898,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToStringArray(UObject* WorldConte
     IsValid = false;
     
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
-    GetNodeValueToStringArray(NodePath, ParsedData, NodeArray);
+    GetNodeValueToStringArray(NodePath, ParsedData, NodeArray, IsValid);
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToIntArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<int32>& NodeArray, bool& IsValid)
@@ -908,7 +907,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToIntArray(UObject* WorldContextO
     IsValid = false;
     
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
-    GetNodeValueToIntArray(NodePath, ParsedData, NodeArray);
+    GetNodeValueToIntArray(NodePath, ParsedData, NodeArray, IsValid);
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloatArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<float>& NodeArray, bool& IsValid)
@@ -917,7 +916,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloatArray(UObject* WorldContex
     IsValid = false;
     
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
-    GetNodeValueToFloatArray(NodePath, ParsedData, NodeArray);
+    GetNodeValueToFloatArray(NodePath, ParsedData, NodeArray, IsValid);
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToBoolArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<bool>& NodeArray, bool& IsValid)
@@ -926,5 +925,5 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToBoolArray(UObject* WorldContext
     IsValid = false;
     
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
-    GetNodeValueToBoolArray(NodePath, ParsedData, NodeArray);
+    GetNodeValueToBoolArray(NodePath, ParsedData, NodeArray, IsValid);
 }
