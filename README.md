@@ -21,7 +21,7 @@ UE中常见的解决方案：
 
 优点：
 
-- 通过类型`GameplayTag`的方式，定位到`Json`中值
+- 通过类似`GameplayTag`的方式，定位到`Json`中值
 - 不用在蓝图中织网了
 - 减少专门创建一堆结构体去`JsonToStruct`
 
@@ -91,7 +91,7 @@ UE中常见的解决方案：
   }
   ```
 
-- `GetNodePath("1.2")`就可以得到`NodeData`
+- `GetNodeData("1.2")`就可以得到`NodeData`
 
   ```json
   {
