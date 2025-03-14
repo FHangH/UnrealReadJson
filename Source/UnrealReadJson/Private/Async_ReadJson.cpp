@@ -595,6 +595,7 @@ void UAsync_ReadJson::ParseJsonArrayToStringArray(const FString& JsonArray, TArr
     if (JsonValueArray.IsEmpty())
     {
         IsValid = false;
+        return;
     }
 
     for (int32 Index = 0; Index < JsonValueArray.Num(); ++Index)
@@ -651,6 +652,7 @@ void UAsync_ReadJson::ParseJsonArrayToIntArray(const FString& JsonArray, TArray<
     if (JsonValueArray.IsEmpty())
     {
         IsValid = false;
+        return;
     }
 
     for (int32 Index = 0; Index < JsonValueArray.Num(); ++Index)
@@ -687,6 +689,7 @@ void UAsync_ReadJson::ParseJsonArrayToFloatArray(const FString& JsonArray, TArra
     if (JsonValueArray.IsEmpty())
     {
         IsValid = false;
+        return;
     }
 
     for (int32 Index = 0; Index < JsonValueArray.Num(); ++Index)
@@ -720,6 +723,7 @@ void UAsync_ReadJson::ParseJsonArrayToBoolArray(const FString& JsonArray, TArray
     if (JsonValueArray.IsEmpty())
     {
         IsValid = false;
+        return;
     }
 
     for (int32 Index = 0; Index < JsonValueArray.Num(); ++Index)
