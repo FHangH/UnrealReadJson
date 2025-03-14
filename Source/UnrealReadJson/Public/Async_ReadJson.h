@@ -75,6 +75,7 @@ protected:
 public:
 	/*
 	 * ReadJson-Async 异步任务（初次解析Json或较大的Json，推荐使用）
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
 	 * @InJsonStr: JsonString 待解析的Json
 	 * @IsLargeJson: IsLargeJson 是否是大文件Json
 	 * @OutParsedData: FParsedData 解析后的Json数据
@@ -85,13 +86,14 @@ public:
 
 	/*
 	 * ReadJson-Block 同步任务（推荐解析较小的Json）
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
 	 * @InJsonStr: JsonString 待解析的Json
 	 * @OutParsedData: FParsedData 解析后的Json数据
 	 * @IsValid: bool 是否解析成功
 	 */
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read", DisplayName="ReadJson", meta=(DefaultToSelf="WorldContextObject"))
 	static void ReadJson_Block(UObject* WorldContextObject, const FString& InJsonStr, FParsedData& OutParsedData, bool& IsValid);
-
+	
 	virtual void Activate() override;
 	
 	static int32 CountJsonNodes(const TSharedPtr<FJsonObject>& JsonObject);
@@ -164,5 +166,119 @@ public:
 
     UFUNCTION(BlueprintPure, Category="FH|ReadJson|GetNodeToArray", DisplayName="GetNodeValue_ToBoolArray")
     static bool GetNodeValueToBoolArray(const FString& NodePath, const FParsedData& ParsedData, TArray<bool>& NodeArray);
+
+	/*便捷读取解析Json*/
+	/*
+	 * 读取Json，并依据NodePath解析String, Array, Object类型 字段值
+	 * 集合[读取，解析]一体，面向非大型Json，一次性使用 (不推荐重复性调用，更不推荐在循环中使用)
+	 * 推荐使用场景：只读取Json中一个字段使用，如果实际需求中需要读取多个Json字段，推荐使用 ReadJson + GetNodeValue 两种组合
+	 * 理想情况下，一个Json只因读取一次，后续就是通过GetNodeValue获取字段值
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @NodePath: NodePath Json字段路径
+	 * @NodeValue: FString Json字段值
+	 * @IsValid: bool 是否解析成功
+	 */
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read|ToValue", DisplayName="ReadJsonByNode_ToString", meta=(DefaultToSelf="WorldContextObject"))
+	static void ReadJson_Block_ByNodePathToString(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, FString& NodeValue, bool& IsValid);
+
+	/*
+	 * 读取Json，并安装NodePath解析Int类型 字段值
+	 * 集合[读取，解析]一体，面向非大型Json，一次性使用 (不推荐重复性调用，更不推荐在循环中使用)
+	 * 推荐使用场景：只读取Json中一个字段使用，如果实际需求中需要读取多个Json字段，推荐使用 ReadJson + GetNodeValue 两种组合
+	 * 理想情况下，一个Json只因读取一次，后续就是通过GetNodeValue获取字段值
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @NodePath: NodePath Json字段路径
+	 * @NodeValue: FString Json字段值
+	 * @IsValid: bool 是否解析成功
+	 */
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read|ToValue", DisplayName="ReadJsonByNode_ToInt", meta=(DefaultToSelf="WorldContextObject"))
+	static void ReadJson_Block_ByNodePathToInt(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, int32& NodeValue, bool& IsValid);
+
+	/*
+	 * 读取Json，并安装NodePath解析Float类型 字段值
+	 * 集合[读取，解析]一体，面向非大型Json，一次性使用 (不推荐重复性调用，更不推荐在循环中使用)
+	 * 推荐使用场景：只读取Json中一个字段使用，如果实际需求中需要读取多个Json字段，推荐使用 ReadJson + GetNodeValue 两种组合
+	 * 理想情况下，一个Json只因读取一次，后续就是通过GetNodeValue获取字段值
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @NodePath: NodePath Json字段路径
+	 * @NodeValue: FString Json字段值
+	 * @IsValid: bool 是否解析成功
+	 */
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read|ToValue", DisplayName="ReadJsonByNode_ToFloat", meta=(DefaultToSelf="WorldContextObject"))
+	static void ReadJson_Block_ByNodePathToFloat(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, float& NodeValue, bool& IsValid);
+
+	/*
+	 * 读取Json，并安装NodePath解析Bool类型 字段值
+	 * 集合[读取，解析]一体，面向非大型Json，一次性使用 (不推荐重复性调用，更不推荐在循环中使用)
+	 * 推荐使用场景：只读取Json中一个字段使用，如果实际需求中需要读取多个Json字段，推荐使用 ReadJson + GetNodeValue 两种组合
+	 * 理想情况下，一个Json只因读取一次，后续就是通过GetNodeValue获取字段值
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @NodePath: NodePath Json字段路径
+	 * @NodeValue: FString Json字段值
+	 * @IsValid: bool 是否解析成功
+	 */
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read|ToValue", DisplayName="ReadJsonByNode_ToBool", meta=(DefaultToSelf="WorldContextObject"))
+	static void ReadJson_Block_ByNodePathToBool(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, bool& NodeValue, bool& IsValid);
+
+	/*
+	 * 读取Json，并依据NodePath解析String, Array, Object类型 数组字段值
+	 * 集合[读取，解析]一体，面向非大型Json，一次性使用 (不推荐重复性调用，更不推荐在循环中使用)
+	 * 推荐使用场景：只读取Json中一个字段使用，如果实际需求中需要读取多个Json字段，推荐使用 ReadJson + GetNodeValue 两种组合
+	 * 理想情况下，一个Json只因读取一次，后续就是通过GetNodeValue获取字段值
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @NodePath: NodePath Json字段路径
+	 * @NodeArray: FString Json字段值
+	 * @IsValid: bool 是否解析成功
+	 */
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read|ToArray", DisplayName="ReadJsonByNode_ToStringArray", meta=(DefaultToSelf="WorldContextObject"))
+	static void ReadJson_Block_ByNodePathToStringArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<FString>& NodeArray, bool& IsValid);
+
+	/*
+	 * 读取Json，并依据NodePath解析Int类型 数组字段值
+	 * 集合[读取，解析]一体，面向非大型Json，一次性使用 (不推荐重复性调用，更不推荐在循环中使用)
+	 * 推荐使用场景：只读取Json中一个字段使用，如果实际需求中需要读取多个Json字段，推荐使用 ReadJson + GetNodeValue 两种组合
+	 * 理想情况下，一个Json只因读取一次，后续就是通过GetNodeValue获取字段值
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @NodePath: NodePath Json字段路径
+	 * @NodeArray: FString Json字段值
+	 * @IsValid: bool 是否解析成功
+	 */
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read|ToArray", DisplayName="ReadJsonByNode_ToIntArray", meta=(DefaultToSelf="WorldContextObject"))
+	static void ReadJson_Block_ByNodePathToIntArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<int32>& NodeArray, bool& IsValid);
+
+	/*
+	 * 读取Json，并依据NodePath解析Float类型 数组字段值
+	 * 集合[读取，解析]一体，面向非大型Json，一次性使用 (不推荐重复性调用，更不推荐在循环中使用)
+	 * 推荐使用场景：只读取Json中一个字段使用，如果实际需求中需要读取多个Json字段，推荐使用 ReadJson + GetNodeValue 两种组合
+	 * 理想情况下，一个Json只因读取一次，后续就是通过GetNodeValue获取字段值
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @NodePath: NodePath Json字段路径
+	 * @NodeArray: FString Json字段值
+	 * @IsValid: bool 是否解析成功
+	 */
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read|ToArray", DisplayName="ReadJsonByNode_ToFloatArray", meta=(DefaultToSelf="WorldContextObject"))
+	static void ReadJson_Block_ByNodePathToFloatArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<float>& NodeArray, bool& IsValid);
+
+	/*
+	 * 读取Json，并依据NodePath解析Bool类型 数组字段值
+	 * 集合[读取，解析]一体，面向非大型Json，一次性使用 (不推荐重复性调用，更不推荐在循环中使用)
+	 * 推荐使用场景：只读取Json中一个字段使用，如果实际需求中需要读取多个Json字段，推荐使用 ReadJson + GetNodeValue 两种组合
+	 * 理想情况下，一个Json只因读取一次，后续就是通过GetNodeValue获取字段值
+	 * @WorldContextObject: UObject* 上下文对象(方便在打印中查看调用的蓝图)
+	 * @InJsonStr: JsonString 待解析的Json
+	 * @NodePath: NodePath Json字段路径
+	 * @NodeArray: FString Json字段值
+	 * @IsValid: bool 是否解析成功
+	 */
+	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read|ToArray", DisplayName="ReadJsonByNode_ToBoolArray", meta=(DefaultToSelf="WorldContextObject"))
+	static void ReadJson_Block_ByNodePathToBoolArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<bool>& NodeArray, bool& IsValid);
+		
 };
 UObject* UAsync_ReadJson::WorldContext = nullptr;

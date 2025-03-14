@@ -856,3 +856,75 @@ bool UAsync_ReadJson::GetNodeValueToBoolArray(const FString& NodePath, const FPa
     UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Node [ %s ] not found"), *CallerName(), __FUNCTION__, *NodePath);
     return false;
 }
+
+void UAsync_ReadJson::ReadJson_Block_ByNodePathToString(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, FString& NodeValue, bool& IsValid)
+{
+    FParsedData ParsedData;
+    IsValid = false;
+    
+    ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
+    GetNodeValueToString(NodePath, ParsedData, NodeValue);
+}
+
+void UAsync_ReadJson::ReadJson_Block_ByNodePathToInt(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, int32& NodeValue, bool& IsValid)
+{
+    FParsedData ParsedData;
+    IsValid = false;
+    
+    ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
+    GetNodeValueToInt(NodePath, ParsedData, NodeValue);
+}
+
+void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloat(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, float& NodeValue, bool& IsValid)
+{
+    FParsedData ParsedData;
+    IsValid = false;
+    
+    ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
+    GetNodeValueToFloat(NodePath, ParsedData, NodeValue);
+}
+
+void UAsync_ReadJson::ReadJson_Block_ByNodePathToBool(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, bool& NodeValue, bool& IsValid)
+{
+    FParsedData ParsedData;
+    IsValid = false;
+    
+    ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
+    GetNodeValueToBool(NodePath, ParsedData, NodeValue);
+}
+
+void UAsync_ReadJson::ReadJson_Block_ByNodePathToStringArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<FString>& NodeArray, bool& IsValid)
+{
+    FParsedData ParsedData;
+    IsValid = false;
+    
+    ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
+    GetNodeValueToStringArray(NodePath, ParsedData, NodeArray);
+}
+
+void UAsync_ReadJson::ReadJson_Block_ByNodePathToIntArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<int32>& NodeArray, bool& IsValid)
+{
+    FParsedData ParsedData;
+    IsValid = false;
+    
+    ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
+    GetNodeValueToIntArray(NodePath, ParsedData, NodeArray);
+}
+
+void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloatArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<float>& NodeArray, bool& IsValid)
+{
+    FParsedData ParsedData;
+    IsValid = false;
+    
+    ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
+    GetNodeValueToFloatArray(NodePath, ParsedData, NodeArray);
+}
+
+void UAsync_ReadJson::ReadJson_Block_ByNodePathToBoolArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<bool>& NodeArray, bool& IsValid)
+{
+    FParsedData ParsedData;
+    IsValid = false;
+    
+    ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, IsValid);
+    GetNodeValueToBoolArray(NodePath, ParsedData, NodeArray);
+}

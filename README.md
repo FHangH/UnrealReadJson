@@ -266,3 +266,15 @@ UE中常见的解决方案：
 #### 3.5 更新打印日志
 
 打印新携带调用所在的蓝图名称，方便定位所在蓝图
+
+
+
+#### 3.6 ReadJsonByNode
+
+集合[读取，解析]一体，面向非大型Json，一次性使用 (不推荐重复性调用，更不推荐在循环中使用)
+推荐使用场景：只读取Json中一个字段使用，如果实际需求中需要读取多个Json字段，推荐使用 ReadJson + GetNodeValue 两种组合
+理想情况下，一个Json只因读取一次，后续就是通过GetNodeValue获取字段值
+
+- To [ String, Int, Float, Bool ]
+
+- To [ String, Int, Float, Boll ]Array
