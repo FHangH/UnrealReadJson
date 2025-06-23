@@ -56,7 +56,7 @@ namespace TempJsonNode
 		return {}; \
 	}
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FReadJsonSingature, FParsedData, ParsedData);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FReadJsonSignature, FParsedData, ParsedData);
 
 UCLASS(BlueprintType, meta=(ExposedAsyncProxy="AsyncTask"))
 class UNREALREADJSON_API UAsync_ReadJson : public UBlueprintAsyncActionBase
@@ -65,13 +65,13 @@ class UNREALREADJSON_API UAsync_ReadJson : public UBlueprintAsyncActionBase
 
 protected:
 	UPROPERTY(BlueprintAssignable, Category="FH|ReadJson|ToValue", DisplayName="Completed")
-	FReadJsonSingature OnReadJsonCompleted;
+	FReadJsonSignature OnReadJsonCompleted;
 
 	UPROPERTY(BlueprintAssignable, Category="FH|ReadJson|ToValue", DisplayName="Failed")
-	FReadJsonSingature OnReadJsonFailed;
+	FReadJsonSignature OnReadJsonFailed;
 
 	UPROPERTY(BlueprintAssignable, Category="FH|ReadJson|ToValue", DisplayName="End")
-	FReadJsonSingature OnReadJsonEnd;
+	FReadJsonSignature OnReadJsonEnd;
 
 	static UObject* WorldContext;
 	FString JsonStr {};
