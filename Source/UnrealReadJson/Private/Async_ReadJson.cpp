@@ -1,5 +1,7 @@
 ﻿#include "Async_ReadJson.h"
 
+UObject* UAsync_ReadJson::WorldContext = nullptr;
+
 UAsync_ReadJson* UAsync_ReadJson::Async_ReadJson(UObject* WorldContextObject, const FString& InJsonStr, const bool IsLargeJson)
 {
 	UAsync_ReadJson* AsyncTask = NewObject<UAsync_ReadJson>();
@@ -136,7 +138,7 @@ void UAsync_ReadJson::ParseJson(const TSharedPtr<FJsonObject>& JsonObject, const
             TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ObjectString);
             if (FJsonSerializer::Serialize(Value->AsObject().ToSharedRef(), Writer))
             {
-                ParsedDataMap.Add(NewPath, { ObjectString, {}, {}, {}, { EValueType::String } });
+                ParsedDataMap.Add(NewPath, { ObjectString, {}, {}, {}, EValueType::String });
             }
 
             // 递归解析子对象
@@ -152,7 +154,7 @@ void UAsync_ReadJson::ParseJson(const TSharedPtr<FJsonObject>& JsonObject, const
             TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ArrayString);
             if (FJsonSerializer::Serialize(Value->AsArray(), Writer))
             {
-                ParsedDataMap.Add(NewPath, { ArrayString, {}, {}, {}, { EValueType::String } });
+                ParsedDataMap.Add(NewPath, { ArrayString, {}, {}, {}, EValueType::String });
             }
         }
         else
@@ -161,25 +163,25 @@ void UAsync_ReadJson::ParseJson(const TSharedPtr<FJsonObject>& JsonObject, const
             switch (Value->Type)
             {
                 case EJson::String:
-                    ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, { EValueType::String } });
+                    ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, EValueType::String });
                     break;
                 case EJson::Boolean:
-                    ParsedDataMap.Add(NewPath, { {}, Value->AsBool(), {}, {}, { EValueType::Bool } });    
+                    ParsedDataMap.Add(NewPath, { {}, Value->AsBool(), {}, {}, EValueType::Bool });    
                     break;
                 case EJson::Number:
                 {
                     if (const double Num = Value->AsNumber(); FMath::IsFinite(Num))
                     {
                         if (FMath::RoundToInt32(Num) == Num)
-                            ParsedDataMap.Add(NewPath, { {}, {}, FMath::RoundToInt32(Num), {}, { EValueType::Int } });    
+                            ParsedDataMap.Add(NewPath, { {}, {}, FMath::RoundToInt32(Num), {}, EValueType::Int });    
                         else
-                            ParsedDataMap.Add(NewPath, { {}, {}, {}, static_cast<float>(Num), { EValueType::Float } });
+                            ParsedDataMap.Add(NewPath, { {}, {}, {}, static_cast<float>(Num), EValueType::Float });
                     }
                     break;
                 }
                 default:
                     // 对于 Array、None 或其他未处理的类型，尝试将其转换为字符串
-                    ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, { EValueType::String } });
+                    ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, EValueType::String });
                     break;
             }
         }
@@ -211,7 +213,7 @@ void UAsync_ReadJson::ParseJson_Block(const TSharedPtr<FJsonObject>& JsonObject,
             TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ObjectString);
             if (FJsonSerializer::Serialize(Value->AsObject().ToSharedRef(), Writer))
             {
-                OutParsedData.ParsedDataMap.Add(NewPath, { ObjectString, {}, {}, {}, { EValueType::String } });
+                OutParsedData.ParsedDataMap.Add(NewPath, { ObjectString, {}, {}, {}, EValueType::String });
             }
 
             // 递归解析子对象
@@ -227,7 +229,7 @@ void UAsync_ReadJson::ParseJson_Block(const TSharedPtr<FJsonObject>& JsonObject,
             TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ArrayString);
             if (FJsonSerializer::Serialize(Value->AsArray(), Writer))
             {
-                OutParsedData.ParsedDataMap.Add(NewPath, { ArrayString, {}, {}, {}, { EValueType::String } });
+                OutParsedData.ParsedDataMap.Add(NewPath, { ArrayString, {}, {}, {}, EValueType::String });
             }
         }
         else
@@ -236,25 +238,25 @@ void UAsync_ReadJson::ParseJson_Block(const TSharedPtr<FJsonObject>& JsonObject,
             switch (Value->Type)
             {
                 case EJson::String:
-                    OutParsedData.ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, { EValueType::String } });
+                    OutParsedData.ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, EValueType::String });
                     break;
                 case EJson::Boolean:
-                    OutParsedData.ParsedDataMap.Add(NewPath, { {}, Value->AsBool(), {}, {}, { EValueType::Bool } });    
+                    OutParsedData.ParsedDataMap.Add(NewPath, { {}, Value->AsBool(), {}, {}, EValueType::Bool });    
                     break;
                 case EJson::Number:
                 {
                     if (const double Num = Value->AsNumber(); FMath::IsFinite(Num))
                     {
                         if (FMath::RoundToInt32(Num) == Num)
-                            OutParsedData.ParsedDataMap.Add(NewPath, { {}, {}, FMath::RoundToInt32(Num), {}, { EValueType::Int } });    
+                            OutParsedData.ParsedDataMap.Add(NewPath, { {}, {}, FMath::RoundToInt32(Num), {}, EValueType::Int });    
                         else
-                            OutParsedData.ParsedDataMap.Add(NewPath, { {}, {}, {}, static_cast<float>(Num), { EValueType::Float } });
+                            OutParsedData.ParsedDataMap.Add(NewPath, { {}, {}, {}, static_cast<float>(Num), EValueType::Float });
                     }
                     break;
                 }
                 default:
                     // 对于 Array、None 或其他未处理的类型，尝试将其转换为字符串
-                    OutParsedData.ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, { EValueType::String } });
+                    OutParsedData.ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, EValueType::String });
                     break;
             }
         }
@@ -296,7 +298,7 @@ void UAsync_ReadJson::ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson
                 if (FJsonSerializer::Serialize(Value->AsObject().ToSharedRef(), Writer))
                 {
                     // 创建 DataStruct 并添加到 ParsedDataMap
-                    ParsedDataMap.Add(NewPath, { ObjectString, {}, {}, {}, { EValueType::String } });
+                    ParsedDataMap.Add(NewPath, { ObjectString, {}, {}, {}, EValueType::String });
                 }
 
                 // 将子对象压入栈中以继续解析
@@ -312,7 +314,7 @@ void UAsync_ReadJson::ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson
                 TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ArrayString);
                 if (FJsonSerializer::Serialize(Value->AsArray(), Writer))
                 {
-                    ParsedDataMap.Add(NewPath, { ArrayString, {}, {}, {}, { EValueType::String } });
+                    ParsedDataMap.Add(NewPath, { ArrayString, {}, {}, {}, EValueType::String });
                 }
             }
             else
@@ -320,10 +322,10 @@ void UAsync_ReadJson::ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson
                 switch (Value->Type)
                 {
                 case EJson::String:
-                    ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, { EValueType::String } });
+                    ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, EValueType::String });
                     break;
                 case EJson::Boolean:
-                    ParsedDataMap.Add(NewPath, { {}, Value->AsBool(), {}, {}, { EValueType::Bool } });
+                    ParsedDataMap.Add(NewPath, { {}, Value->AsBool(), {}, {}, EValueType::Bool });
                     break;
                 case EJson::Number:
                     {
@@ -331,17 +333,17 @@ void UAsync_ReadJson::ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson
                         {
                             if (FMath::RoundToInt32(Num) == Num)
                             {
-                                ParsedDataMap.Add(NewPath, { {}, {}, FMath::RoundToInt32(Num), {}, { EValueType::Int } });
+                                ParsedDataMap.Add(NewPath, { {}, {}, FMath::RoundToInt32(Num), {}, EValueType::Int });
                             }
                             else
-                                ParsedDataMap.Add(NewPath, { {}, {}, {}, static_cast<float>(Num), { EValueType::Float } });
+                                ParsedDataMap.Add(NewPath, { {}, {}, {}, static_cast<float>(Num), EValueType::Float });
                         }
                         break;
                     }
                 case EJson::Array:
                 case EJson::None:
                 default:
-                    ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, { EValueType::String } });
+                    ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, EValueType::String });
                     break;
                 }
             }

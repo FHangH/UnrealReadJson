@@ -56,7 +56,7 @@ namespace TempJsonNode
 		return {}; \
 	}
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FReadJsonSignature, FParsedData, ParsedData);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FReadJsonSingature, FParsedData, ParsedData);
 
 UCLASS(BlueprintType, meta=(ExposedAsyncProxy="AsyncTask"))
 class UNREALREADJSON_API UAsync_ReadJson : public UBlueprintAsyncActionBase
@@ -65,13 +65,13 @@ class UNREALREADJSON_API UAsync_ReadJson : public UBlueprintAsyncActionBase
 
 protected:
 	UPROPERTY(BlueprintAssignable, Category="FH|ReadJson|ToValue", DisplayName="Completed")
-	FReadJsonSignature OnReadJsonCompleted;
+	FReadJsonSingature OnReadJsonCompleted;
 
 	UPROPERTY(BlueprintAssignable, Category="FH|ReadJson|ToValue", DisplayName="Failed")
-	FReadJsonSignature OnReadJsonFailed;
+	FReadJsonSingature OnReadJsonFailed;
 
 	UPROPERTY(BlueprintAssignable, Category="FH|ReadJson|ToValue", DisplayName="End")
-	FReadJsonSignature OnReadJsonEnd;
+	FReadJsonSingature OnReadJsonEnd;
 
 	static UObject* WorldContext;
 	FString JsonStr {};
@@ -286,6 +286,4 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category="FH|ReadJson|Read|ToArray", DisplayName="ReadJsonByNode_ToBoolArray", meta=(DefaultToSelf="WorldContextObject"))
 	static void ReadJson_Block_ByNodePathToBoolArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<bool>& NodeArray, bool& IsValid);
-		
 };
-UObject* UAsync_ReadJson::WorldContext = nullptr;

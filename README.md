@@ -278,3 +278,21 @@ UE中常见的解决方案：
 - To [ String, Int, Float, Bool ]
 
 - To [ String, Int, Float, Boll ]Array
+
+
+
+#### 3.7 调整了初始化方式，兼容Linux
+
+源码里，很多地方是这样写的：
+```cpp
+ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, { EValueType::String } });
+```
+
+
+
+枚举值这种 `{}`的构造初始化，打包Linux时，会有报错提示，可以通过配置项警用报错警示，但最后还是修改掉这种写法
+
+```cpp
+ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, EValueType::String });
+```
+
