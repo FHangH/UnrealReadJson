@@ -312,9 +312,12 @@ ParsedDataMap.Add(NewPath, { Value->AsString(), {}, {}, {}, EValueType::String }
 
 #### 3.8 AI 整体规整优化
 
-**2026-02-06** 借助AI，将整个项目重新规整优化，使用方式不变
+**2026-02-06** 借助AI - MiniMax2，将整个项目重新规整优化，使用方式不变
 1. 将临时结构体和宏定义全部转移到 `JsonData.h`
 2. `WorldContext` 从静态成员改为实例成员，支持多实例并发
 3. 修正部分日志打印消息错误
 4. 整数判断优化，使用 `JsonDataHelper::IsIntegerValue()` 替代 `FMath::RoundToInt32(Num) == Num`
 5. 添加 `NodeValue` 的方式从 #### 3.7 的方式改为 `FJsonDataStruct`内部构造函数的方式，更简洁
+
+**借助AI Claude opus 4.5** 整体优化，包括性能和安全性，仅一个节点发生变化
+ - `Async_ReadJson` 移除 `IsLargeJson` 的bool字段，现在默认改成 Json体积大于100kb时，自动使用选择迭代器方式解析
