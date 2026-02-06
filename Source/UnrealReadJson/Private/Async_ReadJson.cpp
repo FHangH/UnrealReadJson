@@ -6,49 +6,14 @@
 DEFINE_LOG_CATEGORY(LogReadJson);
 
 // ============================================================================
-// 主要接口实现
+// 内部解析实现
 // ============================================================================
-
-UAsync_ReadJson* UAsync_ReadJson::Async_ReadJson(UObject* WorldContextObject, const FString& InJsonStr, bool bIsLargeJson)
+UAsync_ReadJson* UAsync_ReadJson::Async_ReadJson(UObject* WorldContextObject, const FString& InJsonStr)
 {
     UAsync_ReadJson* AsyncTask = NewObject<UAsync_ReadJson>();
     AsyncTask->WorldContext = WorldContextObject;
     AsyncTask->JsonStr = InJsonStr;
-    AsyncTask->bIsLargeJson = bIsLargeJson;
     return AsyncTask;
-}
-
-void UAsync_ReadJson::ReadJson_Block(UObject* WorldContextObject, const FString& InJsonStr, FParsedData& OutParsedData, bool& bIsValid)
-{
-    bIsValid = false;
-    OutParsedData = {};
-    const FString CallerName = WorldContextObject ? WorldContextObject->GetName() : TEXT("Unknown");
-
-    if (InJsonStr.IsEmpty())
-    {
-        UE_LOG(LogReadJson, Error, TEXT("[ %s ] - [ %hs ] JsonString is Invalid"), *CallerName, __FUNCTION__);
-        return;
-    }
-
-    TSharedPtr<FJsonObject> JsonObject;
-    const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(InJsonStr);
-
-    if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid())
-    {
-        UE_LOG(LogReadJson, Error, TEXT("[ %s ] - [ %hs ] Deserialize Failed, JsonString is invalid"), *CallerName, __FUNCTION__);
-        return;
-    }
-
-    UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Begin Parse Json"), *CallerName, __FUNCTION__);
-    ParseJson_Block(JsonObject, TEXT(""), OutParsedData);
-
-    if (OutParsedData.ParsedDataMap.Num() == 0)
-    {
-        UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Parse Json Value Is Empty"), *CallerName, __FUNCTION__);
-        return;
-    }
-
-    bIsValid = true;
 }
 
 void UAsync_ReadJson::Activate()
@@ -56,24 +21,6 @@ void UAsync_ReadJson::Activate()
     RegisterWithGameInstance(WorldContext);
     LoadJson(JsonStr);
 }
-
-void UAsync_ReadJson::EndTask()
-{
-    OnReadJsonEnd.Broadcast({ ParsedDataMap });
-    DestroyTask();
-    UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Async_ReadJson EndTask"), *GetCallerName(), __FUNCTION__);
-}
-
-void UAsync_ReadJson::DestroyTask()
-{
-    SetReadyToDestroy();
-    MarkAsGarbage();
-    UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Async_ReadJson DestroyTask"), *GetCallerName(), __FUNCTION__);
-}
-
-// ============================================================================
-// 内部解析实现
-// ============================================================================
 
 int32 UAsync_ReadJson::CountJsonNodes(const TSharedPtr<FJsonObject>& JsonObject)
 {
@@ -115,7 +62,8 @@ void UAsync_ReadJson::LoadJson(const FString& JsonString)
         return;
     }
 
-    if (bIsLargeJson)
+    // 自动检测是否是大型Json
+    if (ShouldUseIterativeParsing(JsonString))
     {
         const int32 Count = CountJsonNodes(JsonObject);
         ParsedDataMap.Empty(Count);
@@ -132,6 +80,100 @@ void UAsync_ReadJson::LoadJson(const FString& JsonString)
     OnReadJsonCompleted.Broadcast({ ParsedDataMap });
     UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] End Parse Json"), *GetCallerName(), __FUNCTION__);
     DestroyTask();
+}
+
+void UAsync_ReadJson::ParseJson(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath)
+{
+    if (!JsonObject.IsValid() || JsonObject->Values.IsEmpty())
+    {
+        UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] JsonObject is invalid or empty"), *GetCallerName(), __FUNCTION__);
+        return;
+    }
+
+    for (const auto& Elem : JsonObject->Values)
+    {
+        const FString NewPath = JsonDataHelper::BuildNodePath(CurrentPath, Elem.Key);
+        const TSharedPtr<FJsonValue>& Value = Elem.Value;
+
+        ParseJsonValue(Value, NewPath, ParsedDataMap);
+
+        // 如果是对象类型，递归解析子对象
+        if (Value->Type == EJson::Object)
+        {
+            UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Parse Json Object: [ %s ]"), 
+                *GetCallerName(), __FUNCTION__, *NewPath);
+            ParseJson(Value->AsObject(), NewPath);
+        }
+    }
+}
+
+void UAsync_ReadJson::ParseJson_Block(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath, FParsedData& OutParsedData)
+{
+    if (!JsonObject.IsValid() || JsonObject->Values.IsEmpty())
+    {
+        UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] JsonObject is invalid or empty"), __FUNCTION__);
+        return;
+    }
+
+    for (const auto& Elem : JsonObject->Values)
+    {
+        const FString NewPath = JsonDataHelper::BuildNodePath(CurrentPath, Elem.Key);
+        const TSharedPtr<FJsonValue>& Value = Elem.Value;
+
+        ParseJsonValue(Value, NewPath, OutParsedData.ParsedDataMap);
+
+        // 如果是对象类型，递归解析子对象
+        if (Value->Type == EJson::Object)
+        {
+            UE_LOG(LogReadJson, Log, TEXT("[ %hs ] Parse Json Object: [ %s ]"), __FUNCTION__, *NewPath);
+            ParseJson_Block(Value->AsObject(), NewPath, OutParsedData);
+        }
+    }
+}
+
+void UAsync_ReadJson::ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson)
+{
+    if (!RootJson.IsValid() || RootJson->Values.IsEmpty())
+    {
+        UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] JsonObject is invalid or empty"), *GetCallerName(), __FUNCTION__);
+        return;
+    }
+
+    // 预分配栈空间，避免频繁扩容
+    TArray<FJsonParseStackNode> Stack;
+    Stack.Reserve(32);
+    Stack.Emplace(RootJson, TEXT(""));
+
+    while (Stack.Num() > 0)
+    {
+        // 使用Last()+Pop(false)避免拷贝
+        FJsonParseStackNode CurrentNode = MoveTemp(Stack.Last());
+        
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6
+        Stack.Pop(EAllowShrinking::No);
+#else
+        Stack.Pop(false);
+#endif
+        
+        const TSharedPtr<FJsonObject>& JsonObject = CurrentNode.JsonObject;
+        const FString& CurrentPath = CurrentNode.CurrentPath;
+
+        for (const auto& Elem : JsonObject->Values)
+        {
+            const FString NewPath = JsonDataHelper::BuildNodePath(CurrentPath, Elem.Key);
+            const TSharedPtr<FJsonValue>& Value = Elem.Value;
+
+            ParseJsonValue(Value, NewPath, ParsedDataMap);
+
+            // 如果是对象类型，将子对象压入栈中继续解析
+            if (Value->Type == EJson::Object)
+            {
+                UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Parse Json Object: [ %s ]"), 
+                    *GetCallerName(), __FUNCTION__, *NewPath);
+                Stack.Emplace(Value->AsObject(), NewPath);
+            }
+        }
+    }
 }
 
 void UAsync_ReadJson::ParseJsonValue(const TSharedPtr<FJsonValue>& Value, const FString& Path, TMap<FString, FJsonDataStruct>& OutMap)
@@ -173,8 +215,7 @@ void UAsync_ReadJson::ParseJsonValue(const TSharedPtr<FJsonValue>& Value, const 
         break;
     case EJson::Number:
         {
-            const double Num = Value->AsNumber();
-            if (FMath::IsFinite(Num))
+            if (const double Num = Value->AsNumber(); FMath::IsFinite(Num))
             {
                 if (JsonDataHelper::IsIntegerValue(Num))
                 {
@@ -188,104 +229,119 @@ void UAsync_ReadJson::ParseJsonValue(const TSharedPtr<FJsonValue>& Value, const 
             break;
         }
     case EJson::Null:
+        // 显式处理Null值，保留字段但值为空
+        OutMap.Add(Path, FJsonDataStruct::MakeString(TEXT("")));
+        break;
     case EJson::None:
+        // None类型不添加到Map，仅记录日志
+        UE_LOG(LogReadJson, Verbose, TEXT("[ %hs ] Skipped None value at path: %s"), __FUNCTION__, *Path);
+        break;
     default:
         OutMap.Add(Path, FJsonDataStruct::MakeString(Value->AsString()));
         break;
     }
 }
 
-void UAsync_ReadJson::ParseJson(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath)
+TArray<TSharedPtr<FJsonValue>> UAsync_ReadJson::GetJsonValueArray(const FString& JsonArray)
 {
-    if (!JsonObject.IsValid() || JsonObject->Values.IsEmpty())
+    // 使用内联函数替代宏
+    if (!JsonDataHelper::ValidateJsonArrayString(JsonArray, TEXT("GetJsonValueArray")))
     {
-        UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] JsonObject is invalid or empty"), *GetCallerName(), __FUNCTION__);
-        return;
+        return {};
     }
 
-    for (const auto& Elem : JsonObject->Values)
+    TSharedPtr<FJsonValue> JsonValue;
+    const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonArray);
+
+    if (!FJsonSerializer::Deserialize(Reader, JsonValue) || !JsonDataHelper::ValidateJsonValue(JsonValue, TEXT("GetJsonValueArray")))
     {
-        const FString NewPath = CurrentPath.IsEmpty() ? Elem.Key : CurrentPath + TEXT(".") + Elem.Key;
-        const TSharedPtr<FJsonValue>& Value = Elem.Value;
-
-        ParseJsonValue(Value, NewPath, ParsedDataMap);
-
-        // 如果是对象类型，递归解析子对象
-        if (Value->Type == EJson::Object)
-        {
-            UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Parse Json Object: [ %s ]"), 
-                *GetCallerName(), __FUNCTION__, *NewPath);
-            ParseJson(Value->AsObject(), NewPath);
-        }
+        return {};
     }
+    
+    if (!JsonDataHelper::ValidateJsonValueIsArray(JsonValue, TEXT("GetJsonValueArray")))
+    {
+        return {};
+    }
+    
+    if (!JsonDataHelper::ValidateJsonArrayNotEmpty(JsonValue, TEXT("GetJsonValueArray")))
+    {
+        return {};
+    }
+
+    return JsonValue->AsArray();
 }
 
-void UAsync_ReadJson::ParseJson_Block(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath, FParsedData& OutParsedData)
+void UAsync_ReadJson::DestroyTask()
 {
-    if (!JsonObject.IsValid() || JsonObject->Values.IsEmpty())
-    {
-        UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] JsonObject is invalid or empty"), __FUNCTION__);
-        return;
-    }
-
-    for (const auto& Elem : JsonObject->Values)
-    {
-        const FString NewPath = CurrentPath.IsEmpty() ? Elem.Key : CurrentPath + TEXT(".") + Elem.Key;
-        const TSharedPtr<FJsonValue>& Value = Elem.Value;
-
-        ParseJsonValue(Value, NewPath, OutParsedData.ParsedDataMap);
-
-        // 如果是对象类型，递归解析子对象
-        if (Value->Type == EJson::Object)
-        {
-            UE_LOG(LogReadJson, Log, TEXT("[ %hs ] Parse Json Object: [ %s ]"), __FUNCTION__, *NewPath);
-            ParseJson_Block(Value->AsObject(), NewPath, OutParsedData);
-        }
-    }
+    SetReadyToDestroy();
+    MarkAsGarbage();
+    UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Async_ReadJson DestroyTask"), *GetCallerName(), __FUNCTION__);
 }
 
-void UAsync_ReadJson::ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson)
+void UAsync_ReadJson::EndTask()
 {
-    if (!RootJson.IsValid() || RootJson->Values.IsEmpty())
+    OnReadJsonEnd.Broadcast({ ParsedDataMap });
+    DestroyTask();
+    UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Async_ReadJson EndTask"), *GetCallerName(), __FUNCTION__);
+}
+
+FString UAsync_ReadJson::GetCallerName() const
+{
+    return WorldContext ? WorldContext->GetName() : TEXT("Unknown");
+}
+
+bool UAsync_ReadJson::ShouldUseIterativeParsing(const FString& JsonStr)
+{
+    // 基于字符串长度判断是否应使用迭代解析
+    return JsonStr.Len() >= LargeJsonThreshold;
+}
+
+// ============================================================================
+// 主要接口实现
+// ============================================================================
+void UAsync_ReadJson::ReadJson_Block(const UObject* WorldContextObject, const FString& InJsonStr, FParsedData& OutParsedData, bool& bIsValid)
+{
+    bIsValid = false;
+    OutParsedData = {};
+    const FString CallerName = WorldContextObject ? WorldContextObject->GetName() : TEXT("Unknown");
+
+    if (InJsonStr.IsEmpty())
     {
-        UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] JsonObject is invalid or empty"), *GetCallerName(), __FUNCTION__);
+        UE_LOG(LogReadJson, Error, TEXT("[ %s ] - [ %hs ] JsonString is Invalid"), *CallerName, __FUNCTION__);
         return;
     }
 
-    TArray<FJsonParseStackNode> Stack;
-    Stack.Push(FJsonParseStackNode(RootJson, TEXT("")));
+    TSharedPtr<FJsonObject> JsonObject;
+    const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(InJsonStr);
 
-    while (Stack.Num() > 0)
+    if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid())
     {
-        const FJsonParseStackNode CurrentNode = Stack.Pop();
-        const TSharedPtr<FJsonObject>& JsonObject = CurrentNode.JsonObject;
-        const FString& CurrentPath = CurrentNode.CurrentPath;
-
-        for (const auto& Elem : JsonObject->Values)
-        {
-            const FString NewPath = CurrentPath.IsEmpty() ? Elem.Key : CurrentPath + TEXT(".") + Elem.Key;
-            const TSharedPtr<FJsonValue>& Value = Elem.Value;
-
-            ParseJsonValue(Value, NewPath, ParsedDataMap);
-
-            // 如果是对象类型，将子对象压入栈中继续解析
-            if (Value->Type == EJson::Object)
-            {
-                UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Parse Json Object: [ %s ]"), 
-                    *GetCallerName(), __FUNCTION__, *NewPath);
-                Stack.Push(FJsonParseStackNode(Value->AsObject(), NewPath));
-            }
-        }
+        UE_LOG(LogReadJson, Error, TEXT("[ %s ] - [ %hs ] Deserialize Failed, JsonString is invalid"), *CallerName, __FUNCTION__);
+        return;
     }
+
+    UE_LOG(LogReadJson, Log, TEXT("[ %s ] - [ %hs ] Begin Parse Json"), *CallerName, __FUNCTION__);
+    ParseJson_Block(JsonObject, TEXT(""), OutParsedData);
+
+    if (OutParsedData.ParsedDataMap.Num() == 0)
+    {
+        UE_LOG(LogReadJson, Warning, TEXT("[ %s ] - [ %hs ] Parse Json Value Is Empty"), *CallerName, __FUNCTION__);
+        return;
+    }
+
+    bIsValid = true;
 }
 
 // ============================================================================
 // 获取节点值实现
 // ============================================================================
-
 void UAsync_ReadJson::GetNodeData(const FString& NodePath, const FParsedData& ParsedData, FJsonNode& NodeData, bool& bIsValid)
 {
-    CHECK_NODE_PATH(NodePath, bIsValid);
+    bIsValid = false;
+    if (!JsonDataHelper::ValidateNodePath(NodePath, TEXT("GetNodeData")))
+    {
+        return;
+    }
 
     if (const FJsonDataStruct* FoundData = ParsedData.ParsedDataMap.Find(NodePath))
     {
@@ -299,92 +355,35 @@ void UAsync_ReadJson::GetNodeData(const FString& NodePath, const FParsedData& Pa
 
 void UAsync_ReadJson::GetNodeValueToString(const FString& NodePath, const FParsedData& ParsedData, FString& NodeValue, bool& bIsValid)
 {
-    CHECK_NODE_PATH(NodePath, bIsValid);
-
-    if (const FJsonDataStruct* FoundData = ParsedData.ParsedDataMap.Find(NodePath))
-    {
-        if (FoundData->ValueType == EValueType::String)
-        {
-            NodeValue = FoundData->StringValue;
-            bIsValid = true;
-            return;
-        }
-        UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] Node [ %s ] is not a string, Node Type: [ %s ]"), 
-            __FUNCTION__, *NodePath, *JsonDataHelper::GetValueTypeName(FoundData->ValueType));
-        return;
-    }
-
-    UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] Node [ %s ] not found"), __FUNCTION__, *NodePath);
+    JsonDataHelper::GetNodeValueImpl(NodePath, ParsedData.ParsedDataMap, NodeValue, bIsValid, TEXT("GetNodeValueToString"));
 }
 
 void UAsync_ReadJson::GetNodeValueToInt(const FString& NodePath, const FParsedData& ParsedData, int32& NodeValue, bool& bIsValid)
 {
-    CHECK_NODE_PATH(NodePath, bIsValid);
-
-    if (const FJsonDataStruct* FoundData = ParsedData.ParsedDataMap.Find(NodePath))
-    {
-        if (FoundData->ValueType == EValueType::Int)
-        {
-            NodeValue = FoundData->IntValue;
-            bIsValid = true;
-            return;
-        }
-        UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] Node [ %s ] is not an integer, Node Type: [ %s ]"), 
-            __FUNCTION__, *NodePath, *JsonDataHelper::GetValueTypeName(FoundData->ValueType));
-        return;
-    }
-
-    UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] Node [ %s ] not found"), __FUNCTION__, *NodePath);
+    JsonDataHelper::GetNodeValueImpl(NodePath, ParsedData.ParsedDataMap, NodeValue, bIsValid, TEXT("GetNodeValueToInt"));
 }
 
 void UAsync_ReadJson::GetNodeValueToFloat(const FString& NodePath, const FParsedData& ParsedData, float& NodeValue, bool& bIsValid)
 {
-    CHECK_NODE_PATH(NodePath, bIsValid);
-
-    if (const FJsonDataStruct* FoundData = ParsedData.ParsedDataMap.Find(NodePath))
-    {
-        if (FoundData->ValueType == EValueType::Float)
-        {
-            NodeValue = FoundData->FloatValue;
-            bIsValid = true;
-            return;
-        }
-        UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] Node [ %s ] is not a float, Node Type: [ %s ]"), 
-            __FUNCTION__, *NodePath, *JsonDataHelper::GetValueTypeName(FoundData->ValueType));
-        return;
-    }
-
-    UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] Node [ %s ] not found"), __FUNCTION__, *NodePath);
+    JsonDataHelper::GetNodeValueImpl(NodePath, ParsedData.ParsedDataMap, NodeValue, bIsValid, TEXT("GetNodeValueToFloat"));
 }
 
 void UAsync_ReadJson::GetNodeValueToBool(const FString& NodePath, const FParsedData& ParsedData, bool& NodeValue, bool& bIsValid)
 {
-    CHECK_NODE_PATH(NodePath, bIsValid);
-
-    if (const FJsonDataStruct* FoundData = ParsedData.ParsedDataMap.Find(NodePath))
-    {
-        if (FoundData->ValueType == EValueType::Bool)
-        {
-            NodeValue = FoundData->BoolValue;
-            bIsValid = true;
-            return;
-        }
-        UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] Node [ %s ] is not a boolean, Node Type: [ %s ]"), 
-            __FUNCTION__, *NodePath, *JsonDataHelper::GetValueTypeName(FoundData->ValueType));
-        return;
-    }
-
-    UE_LOG(LogReadJson, Warning, TEXT("[ %hs ] Node [ %s ] not found"), __FUNCTION__, *NodePath);
+    JsonDataHelper::GetNodeValueImpl(NodePath, ParsedData.ParsedDataMap, NodeValue, bIsValid, TEXT("GetNodeValueToBool"));
 }
 
 // ============================================================================
 // 获取节点数组值实现
 // ============================================================================
-
 void UAsync_ReadJson::GetNodeValueToStringArray(const FString& NodePath, const FParsedData& ParsedData, TArray<FString>& NodeArray, bool& bIsValid)
 {
     NodeArray.Empty();
-    CHECK_NODE_PATH(NodePath, bIsValid);
+    bIsValid = false;
+    if (!JsonDataHelper::ValidateNodePath(NodePath, TEXT("GetNodeValueToStringArray")))
+    {
+        return;
+    }
 
     if (const FJsonDataStruct* FoundData = ParsedData.ParsedDataMap.Find(NodePath))
     {
@@ -409,7 +408,11 @@ void UAsync_ReadJson::GetNodeValueToStringArray(const FString& NodePath, const F
 void UAsync_ReadJson::GetNodeValueToIntArray(const FString& NodePath, const FParsedData& ParsedData, TArray<int32>& NodeArray, bool& bIsValid)
 {
     NodeArray.Empty();
-    CHECK_NODE_PATH(NodePath, bIsValid);
+    bIsValid = false;
+    if (!JsonDataHelper::ValidateNodePath(NodePath, TEXT("GetNodeValueToIntArray")))
+    {
+        return;
+    }
 
     if (const FJsonDataStruct* FoundData = ParsedData.ParsedDataMap.Find(NodePath))
     {
@@ -434,7 +437,11 @@ void UAsync_ReadJson::GetNodeValueToIntArray(const FString& NodePath, const FPar
 void UAsync_ReadJson::GetNodeValueToFloatArray(const FString& NodePath, const FParsedData& ParsedData, TArray<float>& NodeArray, bool& bIsValid)
 {
     NodeArray.Empty();
-    CHECK_NODE_PATH(NodePath, bIsValid);
+    bIsValid = false;
+    if (!JsonDataHelper::ValidateNodePath(NodePath, TEXT("GetNodeValueToFloatArray")))
+    {
+        return;
+    }
 
     if (const FJsonDataStruct* FoundData = ParsedData.ParsedDataMap.Find(NodePath))
     {
@@ -459,7 +466,11 @@ void UAsync_ReadJson::GetNodeValueToFloatArray(const FString& NodePath, const FP
 void UAsync_ReadJson::GetNodeValueToBoolArray(const FString& NodePath, const FParsedData& ParsedData, TArray<bool>& NodeArray, bool& bIsValid)
 {
     NodeArray.Empty();
-    CHECK_NODE_PATH(NodePath, bIsValid);
+    bIsValid = false;
+    if (!JsonDataHelper::ValidateNodePath(NodePath, TEXT("GetNodeValueToBoolArray")))
+    {
+        return;
+    }
 
     if (const FJsonDataStruct* FoundData = ParsedData.ParsedDataMap.Find(NodePath))
     {
@@ -484,21 +495,6 @@ void UAsync_ReadJson::GetNodeValueToBoolArray(const FString& NodePath, const FPa
 // ============================================================================
 // 数组解析实现
 // ============================================================================
-
-TArray<TSharedPtr<FJsonValue>> UAsync_ReadJson::GetJsonValueArray(const FString& JsonArray)
-{
-    CHECK_JSON_ARRAY_EMPTY(JsonArray);
-
-    TSharedPtr<FJsonValue> JsonValue;
-    const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonArray);
-
-    TRY_PARSE_JSON_VALUE(Reader, JsonValue);
-    CHECK_JSON_VALUE_IS_ARRAY(JsonValue);
-    CHECK_JSON_VALUE_TO_ARRAY_ELEMENT_COUNT(JsonValue);
-
-    return JsonValue->AsArray();
-}
-
 void UAsync_ReadJson::ParseJsonArray(const FString& JsonArray, FJsonArray& ArrayValue, bool& bIsValid)
 {
     ArrayValue = {};
@@ -630,6 +626,16 @@ void UAsync_ReadJson::ParseJsonArrayToIntArray(const FString& JsonArray, TArray<
             {
                 ArrayValue.Add(static_cast<int32>(Num));
             }
+            else
+            {
+                // 警告跳过的非整数元素
+                UE_LOG(LogReadJson, Verbose, TEXT("[ %hs ] Skipped non-integer number: %f"), __FUNCTION__, Num);
+            }
+        }
+        else
+        {
+            // 警告跳过的非数字类型元素
+            UE_LOG(LogReadJson, Verbose, TEXT("[ %hs ] Skipped non-number element of type: %d"), __FUNCTION__, static_cast<int32>(Element->Type));
         }
     }
     bIsValid = true;
@@ -655,6 +661,16 @@ void UAsync_ReadJson::ParseJsonArrayToFloatArray(const FString& JsonArray, TArra
             {
                 ArrayValue.Add(static_cast<float>(Num));
             }
+            else
+            {
+                // 警告跳过的非有限数值
+                UE_LOG(LogReadJson, Verbose, TEXT("[ %hs ] Skipped non-finite number"), __FUNCTION__);
+            }
+        }
+        else
+        {
+            // 警告跳过的非数字类型元素
+            UE_LOG(LogReadJson, Verbose, TEXT("[ %hs ] Skipped non-number element of type: %d"), __FUNCTION__, static_cast<int32>(Element->Type));
         }
     }
     bIsValid = true;
@@ -677,6 +693,11 @@ void UAsync_ReadJson::ParseJsonArrayToBoolArray(const FString& JsonArray, TArray
         {
             ArrayValue.Add(Element->AsBool());
         }
+        else
+        {
+            // 警告跳过的非布尔类型元素
+            UE_LOG(LogReadJson, Verbose, TEXT("[ %hs ] Skipped non-boolean element of type: %d"), __FUNCTION__, static_cast<int32>(Element->Type));
+        }
     }
     bIsValid = true;
 }
@@ -684,9 +705,8 @@ void UAsync_ReadJson::ParseJsonArrayToBoolArray(const FString& JsonArray, TArray
 // ============================================================================
 // 便捷函数实现
 // ============================================================================
-
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToString(
-    UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, FString& NodeValue, bool& bIsValid)
+    const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, FString& NodeValue, bool& bIsValid)
 {
     FParsedData ParsedData;
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, bIsValid);
@@ -697,7 +717,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToString(
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToInt(
-    UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, int32& NodeValue, bool& bIsValid)
+    const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, int32& NodeValue, bool& bIsValid)
 {
     FParsedData ParsedData;
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, bIsValid);
@@ -708,7 +728,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToInt(
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloat(
-    UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, float& NodeValue, bool& bIsValid)
+    const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, float& NodeValue, bool& bIsValid)
 {
     FParsedData ParsedData;
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, bIsValid);
@@ -719,7 +739,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloat(
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToBool(
-    UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, bool& NodeValue, bool& bIsValid)
+    const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, bool& NodeValue, bool& bIsValid)
 {
     FParsedData ParsedData;
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, bIsValid);
@@ -730,7 +750,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToBool(
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToStringArray(
-    UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<FString>& NodeArray, bool& bIsValid)
+    const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<FString>& NodeArray, bool& bIsValid)
 {
     FParsedData ParsedData;
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, bIsValid);
@@ -741,7 +761,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToStringArray(
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToIntArray(
-    UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<int32>& NodeArray, bool& bIsValid)
+    const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<int32>& NodeArray, bool& bIsValid)
 {
     FParsedData ParsedData;
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, bIsValid);
@@ -752,7 +772,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToIntArray(
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloatArray(
-    UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<float>& NodeArray, bool& bIsValid)
+    const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<float>& NodeArray, bool& bIsValid)
 {
     FParsedData ParsedData;
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, bIsValid);
@@ -763,7 +783,7 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToFloatArray(
 }
 
 void UAsync_ReadJson::ReadJson_Block_ByNodePathToBoolArray(
-    UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<bool>& NodeArray, bool& bIsValid)
+    const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<bool>& NodeArray, bool& bIsValid)
 {
     FParsedData ParsedData;
     ReadJson_Block(WorldContextObject, InJsonStr, ParsedData, bIsValid);
@@ -771,13 +791,4 @@ void UAsync_ReadJson::ReadJson_Block_ByNodePathToBoolArray(
     {
         GetNodeValueToBoolArray(NodePath, ParsedData, NodeArray, bIsValid);
     }
-}
-
-// ============================================================================
-// 辅助函数实现
-// ============================================================================
-
-FString UAsync_ReadJson::GetCallerName() const
-{
-    return WorldContext ? WorldContext->GetName() : TEXT("Unknown");
 }

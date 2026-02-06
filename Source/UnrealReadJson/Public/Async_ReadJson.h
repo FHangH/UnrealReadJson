@@ -36,16 +36,24 @@ public:
     FReadJsonSignature OnReadJsonEnd;
     
 private:
+    // ========================================================================
+    // 常量定义
+    // ========================================================================
+
+    /** JSON大小自动检测阈值（字符数，默认100KB） */
+    static constexpr int32 LargeJsonThreshold = 100000;
+
+    // ========================================================================
+    // 成员变量
+    // ========================================================================
+
     /** 上下文对象（用于日志） */
     UPROPERTY()
     TObjectPtr<UObject> WorldContext;
 
     /** 待解析的JSON字符串 */
     FString JsonStr;
-
-    /** 是否为大型JSON */
-    bool bIsLargeJson { false };
-
+    
     /** 解析结果 */
     TMap<FString, FJsonDataStruct> ParsedDataMap;
 
@@ -53,20 +61,68 @@ private:
     /* Function */
 public:
     // ========================================================================
-    // 主要接口 - 读取JSON
+    // 内部实现
     // ========================================================================
-
+    
     /**
-     * 异步读取JSON（推荐用于初次解析或大型JSON）
+     * 异步读取JSON（推荐用于初次解析或大型JSON）, 依据 LargeJsonThreshold 自动判断是否是大型Json（使用迭代解析避免栈溢出）
      * @param WorldContextObject 上下文对象（用于日志显示调用来源）
      * @param InJsonStr 待解析的JSON字符串
-     * @param bIsLargeJson 是否为大型JSON（使用迭代解析避免栈溢出）
      * @return 异步任务对象
      */
     UFUNCTION(BlueprintCallable, Category = "FH|ReadJson|Read|AsyncTask", DisplayName = "ReadJson_Async",
         meta = (BlueprintInternalUseOnly = "true", DefaultToSelf = "WorldContextObject"))
-    static UAsync_ReadJson* Async_ReadJson(UObject* WorldContextObject, const FString& InJsonStr, bool bIsLargeJson = false);
+    static UAsync_ReadJson* Async_ReadJson(UObject* WorldContextObject, const FString& InJsonStr);
 
+protected:
+    /** 激活异步任务 */
+    virtual void Activate() override;
+    
+public:
+    /** 统计JSON节点数量（用于预分配内存） */
+    static int32 CountJsonNodes(const TSharedPtr<FJsonObject>& JsonObject);
+
+    /** 加载并解析JSON */
+    void LoadJson(const FString& JsonString);
+
+    /** 递归解析JSON（异步版本） */
+    void ParseJson(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath);
+
+    /** 递归解析JSON（同步版本） */
+    static void ParseJson_Block(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath, FParsedData& OutParsedData);
+
+    /** 迭代解析JSON（适用于大型JSON） */
+    void ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson);
+
+    /** 解析单个JSON值并存储到Map中 */
+    static void ParseJsonValue(const TSharedPtr<FJsonValue>& Value, const FString& Path, TMap<FString, FJsonDataStruct>& OutMap);
+
+    /** 获取JSON值数组 */
+    static TArray<TSharedPtr<FJsonValue>> GetJsonValueArray(const FString& JsonArray);
+
+    /** 销毁任务 */
+    void DestroyTask();
+    
+    /** 手动结束异步任务 */
+    UFUNCTION(BlueprintCallable, Category = "FH|ReadJson")
+    void EndTask();
+    
+    /** 获取调用者名称（用于日志） */
+    FString GetCallerName() const;
+
+    /**
+     * 判断是否应使用迭代解析（基于JSON字符串长度自动检测）
+     * @param JsonStr JSON字符串
+     * @return 如果长度超过LargeJsonThreshold返回true
+     */
+    static bool ShouldUseIterativeParsing(const FString& JsonStr);
+    
+    
+public:
+    // ========================================================================
+    // 主要接口 - 读取JSON
+    // ========================================================================
+    
     /**
      * 同步读取JSON（推荐用于小型JSON）
      * @param WorldContextObject 上下文对象
@@ -75,11 +131,7 @@ public:
      * @param bIsValid 是否解析成功
      */
     UFUNCTION(BlueprintPure, Category = "FH|ReadJson|Read", DisplayName = "ReadJson", meta = (DefaultToSelf = "WorldContextObject"))
-    static void ReadJson_Block(UObject* WorldContextObject, const FString& InJsonStr, FParsedData& OutParsedData, bool& bIsValid);
-
-    /** 手动结束异步任务 */
-    UFUNCTION(BlueprintCallable, Category = "FH|ReadJson")
-    void EndTask();
+    static void ReadJson_Block(const UObject* WorldContextObject, const FString& InJsonStr, FParsedData& OutParsedData, bool& bIsValid);
 
     // ========================================================================
     // 获取节点值 - 单值
@@ -158,68 +210,33 @@ public:
      * @note 不推荐在循环中使用，如需读取多个字段请使用 ReadJson + GetNodeValue 组合
      */
     UFUNCTION(BlueprintPure, Category = "FH|ReadJson|Read|ToValue", DisplayName = "ReadJsonByNode_ToString", meta = (DefaultToSelf = "WorldContextObject"))
-    static void ReadJson_Block_ByNodePathToString(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, FString& NodeValue, bool& bIsValid);
+    static void ReadJson_Block_ByNodePathToString(const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, FString& NodeValue, bool& bIsValid);
 
     /** 读取JSON并获取指定路径的整数值 */
     UFUNCTION(BlueprintPure, Category = "FH|ReadJson|Read|ToValue", DisplayName = "ReadJsonByNode_ToInt", meta = (DefaultToSelf = "WorldContextObject"))
-    static void ReadJson_Block_ByNodePathToInt(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, int32& NodeValue, bool& bIsValid);
+    static void ReadJson_Block_ByNodePathToInt(const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, int32& NodeValue, bool& bIsValid);
 
     /** 读取JSON并获取指定路径的浮点值 */
     UFUNCTION(BlueprintPure, Category = "FH|ReadJson|Read|ToValue", DisplayName = "ReadJsonByNode_ToFloat", meta = (DefaultToSelf = "WorldContextObject"))
-    static void ReadJson_Block_ByNodePathToFloat(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, float& NodeValue, bool& bIsValid);
+    static void ReadJson_Block_ByNodePathToFloat(const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, float& NodeValue, bool& bIsValid);
 
     /** 读取JSON并获取指定路径的布尔值 */
     UFUNCTION(BlueprintPure, Category = "FH|ReadJson|Read|ToValue", DisplayName = "ReadJsonByNode_ToBool", meta = (DefaultToSelf = "WorldContextObject"))
-    static void ReadJson_Block_ByNodePathToBool(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, bool& NodeValue, bool& bIsValid);
+    static void ReadJson_Block_ByNodePathToBool(const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, bool& NodeValue, bool& bIsValid);
 
     /** 读取JSON并获取指定路径的字符串数组 */
     UFUNCTION(BlueprintPure, Category = "FH|ReadJson|Read|ToArray", DisplayName = "ReadJsonByNode_ToStringArray", meta = (DefaultToSelf = "WorldContextObject"))
-    static void ReadJson_Block_ByNodePathToStringArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<FString>& NodeArray, bool& bIsValid);
+    static void ReadJson_Block_ByNodePathToStringArray(const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<FString>& NodeArray, bool& bIsValid);
 
     /** 读取JSON并获取指定路径的整数数组 */
     UFUNCTION(BlueprintPure, Category = "FH|ReadJson|Read|ToArray", DisplayName = "ReadJsonByNode_ToIntArray", meta = (DefaultToSelf = "WorldContextObject"))
-    static void ReadJson_Block_ByNodePathToIntArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<int32>& NodeArray, bool& bIsValid);
+    static void ReadJson_Block_ByNodePathToIntArray(const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<int32>& NodeArray, bool& bIsValid);
 
     /** 读取JSON并获取指定路径的浮点数组 */
     UFUNCTION(BlueprintPure, Category = "FH|ReadJson|Read|ToArray", DisplayName = "ReadJsonByNode_ToFloatArray", meta = (DefaultToSelf = "WorldContextObject"))
-    static void ReadJson_Block_ByNodePathToFloatArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<float>& NodeArray, bool& bIsValid);
+    static void ReadJson_Block_ByNodePathToFloatArray(const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<float>& NodeArray, bool& bIsValid);
 
     /** 读取JSON并获取指定路径的布尔数组 */
     UFUNCTION(BlueprintPure, Category = "FH|ReadJson|Read|ToArray", DisplayName = "ReadJsonByNode_ToBoolArray", meta = (DefaultToSelf = "WorldContextObject"))
-    static void ReadJson_Block_ByNodePathToBoolArray(UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<bool>& NodeArray, bool& bIsValid);
-
-protected:
-    // ========================================================================
-    // 内部实现
-    // ========================================================================
-
-    /** 激活异步任务 */
-    virtual void Activate() override;
-
-    /** 统计JSON节点数量（用于预分配内存） */
-    static int32 CountJsonNodes(const TSharedPtr<FJsonObject>& JsonObject);
-
-    /** 加载并解析JSON */
-    void LoadJson(const FString& JsonString);
-
-    /** 递归解析JSON（异步版本） */
-    void ParseJson(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath);
-
-    /** 递归解析JSON（同步版本） */
-    static void ParseJson_Block(const TSharedPtr<FJsonObject>& JsonObject, const FString& CurrentPath, FParsedData& OutParsedData);
-
-    /** 迭代解析JSON（适用于大型JSON） */
-    void ParseJsonIterative(const TSharedPtr<FJsonObject>& RootJson);
-
-    /** 解析单个JSON值并存储到Map中 */
-    static void ParseJsonValue(const TSharedPtr<FJsonValue>& Value, const FString& Path, TMap<FString, FJsonDataStruct>& OutMap);
-
-    /** 获取JSON值数组 */
-    static TArray<TSharedPtr<FJsonValue>> GetJsonValueArray(const FString& JsonArray);
-
-    /** 销毁任务 */
-    void DestroyTask();
-
-    /** 获取调用者名称（用于日志） */
-    FString GetCallerName() const;
+    static void ReadJson_Block_ByNodePathToBoolArray(const UObject* WorldContextObject, const FString& InJsonStr, const FString& NodePath, TArray<bool>& NodeArray, bool& bIsValid);
 };
